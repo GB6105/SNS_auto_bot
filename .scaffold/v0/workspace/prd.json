@@ -1,0 +1,313 @@
+{
+  "$schema": "prd.schema.v0",
+  "project": {
+    "name": "ADHD 플래너 SNS 브랜딩 자동화 에이전트",
+    "description": "ADHD 플래너의 메시지를 인스타그램+스레드 콘텐츠로 변환해 기획·카피·이미지까지 자동 생성하고, 사람은 텔레그램에서 하루 한 번 1탭 승인만 하는 반자동(승인제) SNS 브랜딩 에이전트. 외부 자격증명 없이도 전체 흐름이 도는 코어를 우선 구현한다.",
+    "tech_stack": {
+      "framework": "Node 20+ (ESM)",
+      "language": "TypeScript",
+      "test_command": "npm test",
+      "typecheck_command": "npm run typecheck",
+      "lint_command": "npm run lint"
+    }
+  },
+  "epics": [
+    {
+      "id": "EPIC-1",
+      "name": "콘텐츠 기획·캘린더",
+      "description": "4기둥에서 주제를 뽑아 2주치 캘린더를 cadence 규칙대로 배치"
+    },
+    {
+      "id": "EPIC-2",
+      "name": "카피 생성(가드레일 내장)",
+      "description": "주제→IG 카드뉴스+캡션, 요일톤 스레드 텍스트 생성. Claude API+오프라인 stub. 게시 전 자동 체크리스트"
+    },
+    {
+      "id": "EPIC-3",
+      "name": "비주얼 슬롯(pencil.dev 계약)",
+      "description": "카피를 role 기반 범용 슬롯 JSON으로 매핑 + DesignAdapter 인터페이스"
+    },
+    {
+      "id": "EPIC-4",
+      "name": "승인·게시",
+      "description": "상태머신 승인 게이트 + 텔레그램/IG/Threads 어댑터(stub) + 성과 수집"
+    },
+    {
+      "id": "EPIC-5",
+      "name": "오케스트레이션",
+      "description": "로컬 CLI 파이프라인 + n8n(Cron+Webhook) 블루프린트"
+    }
+  ],
+  "user_stories": [
+    {
+      "id": "US-1",
+      "epic_id": "EPIC-1",
+      "priority": "P0",
+      "title": "2주치 콘텐츠 캘린더 생성",
+      "as_a": "운영자",
+      "i_want": "4기둥과 cadence 규칙으로 2주치 캘린더가 자동 배치되기를",
+      "so_that": "매주 무엇을 만들지 고민하지 않는다",
+      "acceptance_criteria": [
+        "시작일 입력 시 14일치 슬롯 생성",
+        "IG=월·수·금에 기둥 매핑(금은 비포애프터/빌드인퍼블릭 격주 교차, ISO week 패리티 기준)",
+        "스레드=매일 요일 톤 매핑",
+        "각 항목 {date, platform, pillar 또는 tone, status:'planned'}",
+        "결정적(같은 시작일→같은 캘린더)"
+      ],
+      "estimate": "M",
+      "passes": true,
+      "disputed": false,
+      "implementation_notes": "순수 함수. 격주 교차는 ISO week 패리티."
+    },
+    {
+      "id": "US-2",
+      "epic_id": "EPIC-1",
+      "priority": "P1",
+      "title": "기둥별 주제 풀에서 주제 1줄 선정",
+      "as_a": "운영자",
+      "i_want": "각 캘린더 슬롯에 기둥에 맞는 주제 한 줄이 채워지기를",
+      "so_that": "카피 생성 입력이 준비된다",
+      "acceptance_criteria": [
+        "기둥별 주제 후보에서 미사용 우선 선택",
+        "슬롯에 topic 필드 주입",
+        "중복 회피(used 마킹)"
+      ],
+      "estimate": "S",
+      "passes": true,
+      "disputed": false,
+      "implementation_notes": "결정적 선택(인덱스/시드)."
+    },
+    {
+      "id": "US-3",
+      "epic_id": "EPIC-2",
+      "priority": "P0",
+      "title": "IG 카드뉴스 카피+캡션 생성",
+      "as_a": "운영자",
+      "i_want": "기둥+주제 입력으로 5~7장 카드 카피와 캡션이 생성되기를",
+      "so_that": "디자인에 꽂을 텍스트가 준비된다",
+      "acceptance_criteria": [
+        "1장 후킹 헤드라인 + 2~6장 한 장 한 메시지 + 마지막 CTA",
+        "캡션=첫줄 후킹+본문+해시태그",
+        "가드레일 시스템 프롬프트 적용",
+        "후처리로 카드 수 5~7 클램프",
+        "구조화 출력(JSON)"
+      ],
+      "estimate": "M",
+      "passes": true,
+      "disputed": false,
+      "implementation_notes": "Devil#1 반영: 결정적 후처리 검증·보정(카드수 클램프)."
+    },
+    {
+      "id": "US-4",
+      "epic_id": "EPIC-2",
+      "priority": "P0",
+      "title": "스레드 텍스트 생성(요일 톤)",
+      "as_a": "운영자",
+      "i_want": "요일 톤에 맞는 280자 내외 스레드 글이 생성되기를",
+      "so_that": "매일 텍스트 발행이 끊기지 않는다",
+      "acceptance_criteria": [
+        "요일→톤 매핑(진지/일상홍보/질문형/공감)",
+        "280자 내외(초과 시 트림)",
+        "추상어 금지·구체 장면",
+        "질문형은 질문으로 종료 보장",
+        "가드레일 적용"
+      ],
+      "estimate": "M",
+      "passes": true,
+      "disputed": false,
+      "implementation_notes": "Devil#1 반영: 280자 트림·질문형 종료 후처리."
+    },
+    {
+      "id": "US-5",
+      "epic_id": "EPIC-2",
+      "priority": "P0",
+      "title": "Claude API 클라이언트 + 오프라인 stub",
+      "as_a": "개발자",
+      "i_want": "카피 생성이 Claude API로 동작하되 키가 없으면 결정적 stub로 동작하기를",
+      "so_that": "외부 키 없이도 개발·테스트가 된다",
+      "acceptance_criteria": [
+        "ANTHROPIC_API_KEY 있으면 실호출",
+        "없으면 결정적 stub 응답",
+        "시스템 프롬프트에 톤·가드레일 고정",
+        "모델 env 외부화(기본값 override 가능)",
+        "타임아웃/재시도"
+      ],
+      "estimate": "M",
+      "passes": true,
+      "disputed": false,
+      "implementation_notes": "Devil#7 반영: 모델 외부화(CLAUDE_MODEL), 기본 sonnet 권장."
+    },
+    {
+      "id": "US-6",
+      "epic_id": "EPIC-2",
+      "priority": "P0",
+      "title": "게시 전 자동 체크리스트(규칙 스캐너)",
+      "as_a": "운영자",
+      "i_want": "생성 콘텐츠가 게시 전 4종 체크를 자동 통과/경고되기를",
+      "so_that": "자동화 사고(통계·사연·의학·출처)를 막는다",
+      "acceptance_criteria": [
+        "미확인 통계 패턴 탐지",
+        "남의 사연·캡처 신호 탐지",
+        "의학적 단정 탐지",
+        "출처 필요 플래그",
+        "{check,status:pass|warn,evidence[]} 리포트",
+        "warn은 차단이 아닌 정보(사람 2중방어)"
+      ],
+      "estimate": "M",
+      "passes": true,
+      "disputed": false,
+      "implementation_notes": "Devil#2 반영: 규칙은 warn만, 차단 금지. 근거 텍스트 함께."
+    },
+    {
+      "id": "US-7",
+      "epic_id": "EPIC-3",
+      "priority": "P1",
+      "title": "pencil.dev 카피 슬롯 계약 + 어댑터 인터페이스",
+      "as_a": "개발자",
+      "i_want": "카피를 role 기반 범용 슬롯 JSON으로 매핑하고 어댑터 인터페이스로 추상화하기를",
+      "so_that": "pencil.dev 연결 방식이 정해지면 어댑터만 갈아끼운다",
+      "acceptance_criteria": [
+        "카드/캡션 → 슬롯 배열({slotId, role, text, maxChars}) 변환",
+        "role enum(headline/body/cta/disclaimer) + slotId 매핑 분리",
+        "maxChars 초과 시 경고",
+        "DesignAdapter 인터페이스 정의",
+        "미연결 시 슬롯 JSON 파일 출력 기본 어댑터"
+      ],
+      "estimate": "M",
+      "passes": true,
+      "disputed": false,
+      "implementation_notes": "Devil#6 반영: role 기반으로 매주 디자인 교체 흡수. 결정: 범용 슬롯 JSON."
+    },
+    {
+      "id": "US-8",
+      "epic_id": "EPIC-4",
+      "priority": "P0",
+      "title": "승인 게이트(상태 머신)",
+      "as_a": "운영자",
+      "i_want": "생성물이 게시/수정/폐기 결정 전까지 멈추기를",
+      "so_that": "5분 승인제가 구현된다",
+      "acceptance_criteria": [
+        "상태 planned→generated→awaiting_approval→(approved|revise|discarded)→published",
+        "승인 없이는 publish 불가",
+        "무응답 시 리마인드 1회 후 만료(기본 +12h 리마인드, 24h 폐기), 자동 게시 금지",
+        "상태 전이 검증(불법 전이 거부)"
+      ],
+      "estimate": "S",
+      "passes": true,
+      "disputed": false,
+      "implementation_notes": "Devil#3 반영: 무응답 폐기 전 리마인드. 주입식 Clock으로 테스트."
+    },
+    {
+      "id": "US-9",
+      "epic_id": "EPIC-4",
+      "priority": "P1",
+      "title": "텔레그램 승인 봇 어댑터(인터페이스+stub)",
+      "as_a": "운영자",
+      "i_want": "미리보기+버튼 알림을 받고 1탭으로 결정하기를",
+      "so_that": "하루 한 번 승인만 한다",
+      "acceptance_criteria": [
+        "미리보기 메시지 포맷(카피+체크리스트 경고, ⚠️+라벨)",
+        "inline 버튼(게시/수정/폐기)",
+        "TELEGRAM_BOT_TOKEN env",
+        "토큰 없으면 콘솔 stub"
+      ],
+      "estimate": "M",
+      "passes": true,
+      "disputed": false,
+      "implementation_notes": "외부 토큰 필요 → RALPH-BLOCKER 주석. Notifier 인터페이스."
+    },
+    {
+      "id": "US-10",
+      "epic_id": "EPIC-4",
+      "priority": "P1",
+      "title": "IG/Threads 게시 어댑터(인터페이스+stub)",
+      "as_a": "운영자",
+      "i_want": "승인 후 IG 카드/스레드 글이 게시되기를",
+      "so_that": "발행이 완료된다",
+      "acceptance_criteria": [
+        "Publisher 인터페이스(IG Graph: 컨테이너 생성→게시 / Threads: 텍스트)",
+        "자격증명 env 주입",
+        "미설정 시 dry-run stub",
+        "게시 결과 객체 반환",
+        "IG 24h 25건 한도 주석"
+      ],
+      "estimate": "M",
+      "passes": true,
+      "disputed": false,
+      "implementation_notes": "외부 비즈계정·앱심사·토큰 필요 → RALPH-BLOCKER. dry-run 우선."
+    },
+    {
+      "id": "US-11",
+      "epic_id": "EPIC-4",
+      "priority": "P2",
+      "title": "성과 수집(도달·저장·댓글)",
+      "as_a": "운영자",
+      "i_want": "게시물 성과가 수집되기를",
+      "so_that": "지표를 본다",
+      "acceptance_criteria": [
+        "게시 id로 인사이트 조회 인터페이스",
+        "{reach,saves,comments} 정규화",
+        "미설정 시 stub"
+      ],
+      "estimate": "S",
+      "passes": true,
+      "disputed": false,
+      "implementation_notes": "외부 API 권한 필요 → InsightsSource 인터페이스+stub."
+    },
+    {
+      "id": "US-12",
+      "epic_id": "EPIC-5",
+      "priority": "P1",
+      "title": "로컬 파이프라인 오케스트레이터 + CLI",
+      "as_a": "운영자",
+      "i_want": "캘린더→카피→슬롯→체크리스트→승인대기 미리보기를 한 번에 실행하기를",
+      "so_that": "외부 설정 없이 전체 흐름을 확인한다",
+      "acceptance_criteria": [
+        "날짜 입력→그날 항목 생성·체크·미리보기 산출",
+        "JSON/콘솔 출력",
+        "결정적",
+        "승인 게이트에서 멈춤(awaiting_approval)"
+      ],
+      "estimate": "M",
+      "passes": true,
+      "disputed": false,
+      "implementation_notes": "코어 조립. DI로 stub 주입."
+    },
+    {
+      "id": "US-13",
+      "epic_id": "EPIC-5",
+      "priority": "P2",
+      "title": "n8n 워크플로우 블루프린트(Cron+Webhook)",
+      "as_a": "운영자",
+      "i_want": "n8n에 임포트할 워크플로우 JSON 설계도가 있기를",
+      "so_that": "호스팅 후 바로 구축한다",
+      "acceptance_criteria": [
+        "Cron(일요일/매일8시/월수금) 노드",
+        "텔레그램 승인 Webhook 노드",
+        "댓글 Webhook 노드",
+        "생성→체크→알림→게시 흐름 주석",
+        "JSON 파싱 유효성(로컬 검증)"
+      ],
+      "estimate": "M",
+      "passes": true,
+      "disputed": false,
+      "implementation_notes": "Devil#4 반영: 참조용 블루프린트(임포트 후 자격증명 연결 필요). 실행은 호스팅 후."
+    }
+  ],
+  "disputes": [],
+  "slop_removed": [],
+  "metadata": {
+    "generated_by": "prd-scaffold-v0",
+    "generated_at": "2026-06-23T17:00:00Z",
+    "pipeline_version": "v0",
+    "agents_run": [
+      "socratic",
+      "pm",
+      "engineer",
+      "user",
+      "devil",
+      "slop-checker",
+      "observer"
+    ]
+  }
+}

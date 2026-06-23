@@ -1,0 +1,95 @@
+{
+  "name": "SNS Auto — ADHD 플래너 (참조 블루프린트 v0)",
+  "meta": {
+    "note": "US-13 참조용 블루프린트. n8n 임포트 후 자격증명(Claude/Telegram/IG/Threads) 연결 + Code 노드에 dist/src 로직 이식 필요. 실행 검증은 호스팅 후 수동(Devil#4).",
+    "timezone": "Asia/Seoul",
+    "ig_rate_limit": "24h당 25건 — 게시 노드에서 가드 필요"
+  },
+  "nodes": [
+    {
+      "id": "cron-weekly-calendar",
+      "name": "Cron · 일요일 밤 (다음주 캘린더+카피)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "parameters": { "rule": { "interval": [{ "field": "cronExpression", "expression": "0 22 * * 0" }] } },
+      "notes": "buildCalendar + assignTopics + 카피 일괄 생성"
+    },
+    {
+      "id": "cron-daily-thread",
+      "name": "Cron · 매일 08:00 (스레드 생성→승인)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "parameters": { "rule": { "interval": [{ "field": "cronExpression", "expression": "0 8 * * *" }] } },
+      "notes": "generateThreadCopy → runChecklist → Telegram 승인 알림"
+    },
+    {
+      "id": "cron-ig-mwf",
+      "name": "Cron · 월·수·금 08:00 (카드뉴스 생성→승인)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "parameters": { "rule": { "interval": [{ "field": "cronExpression", "expression": "0 8 * * 1,3,5" }] } },
+      "notes": "generateCardCopy → toSlots → pencil.dev(render) → runChecklist → Telegram 승인 알림"
+    },
+    {
+      "id": "generate-copy",
+      "name": "Code · 카피 생성 (Claude API)",
+      "type": "n8n-nodes-base.code",
+      "parameters": { "language": "javaScript", "jsCode": "// copywriter.generateCardCopy / generateThreadCopy 이식. ANTHROPIC_API_KEY 자격증명." },
+      "notes": "RALPH-BLOCKER: Claude API 자격증명 필요(없으면 stub)."
+    },
+    {
+      "id": "checklist",
+      "name": "Code · 게시 전 자동 체크리스트",
+      "type": "n8n-nodes-base.code",
+      "parameters": { "language": "javaScript", "jsCode": "// guardrail.runChecklist 이식 — warn은 알림에 표기만(차단 아님)." }
+    },
+    {
+      "id": "telegram-approve",
+      "name": "Telegram · 승인 알림(inline 버튼)",
+      "type": "n8n-nodes-base.telegram",
+      "parameters": { "operation": "sendMessage", "additionalFields": { "reply_markup": "inline_keyboard: [게시|수정|폐기]" } },
+      "notes": "RALPH-BLOCKER: TELEGRAM_BOT_TOKEN 자격증명 필요. formatPreview 텍스트."
+    },
+    {
+      "id": "wait-approval",
+      "name": "Wait · 승인 대기(만료 24h, 리마인드 12h)",
+      "type": "n8n-nodes-base.wait",
+      "parameters": { "resume": "webhook" },
+      "notes": "무응답 시 리마인드 1회 후 폐기(자동 게시 금지) — approval.pendingAction 규칙."
+    },
+    {
+      "id": "webhook-approval",
+      "name": "Webhook · 텔레그램 콜백(게시/수정/폐기)",
+      "type": "n8n-nodes-base.webhook",
+      "parameters": { "httpMethod": "POST", "path": "approval-callback" },
+      "notes": "callback_data=approve→게시, revise→재생성, discard→폐기. approval.transition 게이트."
+    },
+    {
+      "id": "publish",
+      "name": "Code · 게시 (IG Graph / Threads API)",
+      "type": "n8n-nodes-base.code",
+      "parameters": { "language": "javaScript", "jsCode": "// publisher.publishCard/publishThread 이식. canPublish(approved)에서만." },
+      "notes": "RALPH-BLOCKER: IG 비즈계정+앱심사+토큰, Threads 토큰. dry-run 기본."
+    },
+    {
+      "id": "webhook-comment",
+      "name": "Webhook · 댓글 발생(답변 초안 생성)",
+      "type": "n8n-nodes-base.webhook",
+      "parameters": { "httpMethod": "POST", "path": "comment-event" },
+      "notes": "댓글 → Claude로 답변 초안 → Telegram 알림(게시는 승인). Out of scope: 완전 자동 응대."
+    },
+    {
+      "id": "collect-insights",
+      "name": "Code · 성과 수집(도달·저장·댓글)",
+      "type": "n8n-nodes-base.code",
+      "parameters": { "language": "javaScript", "jsCode": "// publisher.InsightsSource.fetch 이식." },
+      "notes": "RALPH-BLOCKER: IG insights 권한 필요. P2."
+    }
+  ],
+  "connections": {
+    "cron-daily-thread": [["generate-copy"]],
+    "cron-ig-mwf": [["generate-copy"]],
+    "generate-copy": [["checklist"]],
+    "checklist": [["telegram-approve"]],
+    "telegram-approve": [["wait-approval"]],
+    "webhook-approval": [["publish"]],
+    "publish": [["collect-insights"]]
+  }
+}
