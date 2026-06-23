@@ -1,0 +1,58 @@
+{
+  "$schema": "prd.schema.v0",
+  "project": {
+    "name": "",
+    "description": "",
+    "tech_stack": {
+      "framework": "",
+      "language": "",
+      "test_command": "",
+      "typecheck_command": "",
+      "lint_command": ""
+    }
+  },
+  "epics": [
+    {
+      "id": "EPIC-1",
+      "name": "",
+      "description": ""
+    }
+  ],
+  "user_stories": [
+    {
+      "id": "US-1",
+      "epic_id": "EPIC-1",
+      "priority": "P0",
+      "title": "",
+      "as_a": "",
+      "i_want": "",
+      "so_that": "",
+      "acceptance_criteria": [],
+      "estimate": "M",
+      "passes": false,
+      "disputed": false,
+      "implementation_notes": ""
+    }
+  ],
+  "disputes": [
+    {
+      "item": "",
+      "raised_by": "",
+      "issue": "",
+      "resolution": ""
+    }
+  ],
+  "slop_removed": [
+    {
+      "item": "",
+      "slop_score": 0,
+      "reason": ""
+    }
+  ],
+  "metadata": {
+    "generated_by": "prd-scaffold-v0",
+    "generated_at": "",
+    "pipeline_version": "v0",
+    "agents_run": []
+  }
+}
