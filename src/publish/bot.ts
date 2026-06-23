@@ -67,14 +67,15 @@ export async function handleUpdate(update: TelegramUpdate, deps: BotDeps): Promi
  * 롱폴링 루프. 버튼 탭을 계속 수신해 처리. shouldStop으로 종료 제어(테스트/시그널).
  */
 export async function runBot(deps: BotDeps, shouldStop: () => boolean = () => false): Promise<void> {
-  const log = deps.log ?? console.log;
-  const me = await deps.api.getMe();
+  const log = deps.log ?? ((m: string) => console.log(m));
+  const d: BotDeps = { ...deps, log }; // handleUpdate가 항상 로그를 남기도록 주입
+  const me = await d.api.getMe();
   log(`[bot] @${me.username ?? me.first_name} 폴링 시작 (Ctrl+C로 종료)`);
   let offset = 0;
   while (!shouldStop()) {
     let updates: TelegramUpdate[];
     try {
-      updates = await deps.api.getUpdates(offset, 30);
+      updates = await d.api.getUpdates(offset, 30);
     } catch (err) {
       log(`[bot] getUpdates 오류(재시도): ${String(err)}`);
       await new Promise((r) => setTimeout(r, 2000));
@@ -82,7 +83,7 @@ export async function runBot(deps: BotDeps, shouldStop: () => boolean = () => fa
     }
     for (const u of updates) {
       offset = Math.max(offset, u.update_id + 1);
-      await handleUpdate(u, deps);
+      await handleUpdate(u, d);
     }
   }
 }
