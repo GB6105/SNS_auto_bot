@@ -2,6 +2,7 @@
 import type { GeneratedCopy } from "../domain/types.js";
 import { PILLAR_LABEL, THREAD_TONE_LABEL } from "../domain/types.js";
 import type { ChecklistReport } from "../guardrail/checklist.js";
+import { TelegramApi } from "./telegram-api.js";
 
 export interface ApprovalPreview {
   date: string;
@@ -74,22 +75,25 @@ export class ConsoleNotifier implements Notifier {
 export class TelegramNotifier implements Notifier {
   readonly name = "telegram";
   // RALPH-BLOCKER: 실발송은 TELEGRAM_BOT_TOKEN + chat_id 필요(외부 설정). 없으면 ConsoleNotifier 사용.
-  constructor(private readonly token: string, private readonly chatId: string) {}
+  private readonly api: TelegramApi;
+  constructor(token: string, private readonly chatId: string, fetchFn: typeof fetch = fetch) {
+    this.api = new TelegramApi(token, fetchFn);
+  }
 
   async notify(preview: ApprovalPreview): Promise<NotifyResult> {
-    const res = await fetch(`https://api.telegram.org/bot${this.token}/sendMessage`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        chat_id: this.chatId,
-        text: formatPreview(preview),
-        reply_markup: { inline_keyboard: [buildApprovalKeyboard(preview.id ?? preview.date)] },
-      }),
-    });
-    if (!res.ok) throw new Error(`Telegram ${res.status}: ${await res.text()}`);
-    const data = (await res.json()) as { result?: { message_id?: number } };
-    return { delivered: true, channel: "telegram", messageId: String(data.result?.message_id ?? "") };
+    const messageId = await this.api.sendMessage(
+      this.chatId,
+      formatPreview(preview),
+      buildApprovalKeyboard(preview.id ?? preview.date),
+    );
+    return { delivered: true, channel: "telegram", messageId: String(messageId) };
   }
+}
+
+/** env에서 Telegram API 클라이언트 생성(토큰 없으면 null) */
+export function makeTelegramApi(): TelegramApi | null {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  return token ? new TelegramApi(token) : null;
 }
 
 /** 환경에 맞는 Notifier 선택 */

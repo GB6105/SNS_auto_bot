@@ -11,7 +11,8 @@ import path from "node:path";
 import { assignTopics, buildCalendar } from "./domain/calendar.js";
 import { PILLAR_LABEL, THREAD_TONE_LABEL } from "./domain/types.js";
 import { makeLLM } from "./generation/llm.js";
-import { makeNotifier } from "./publish/telegram.js";
+import { makeNotifier, makeTelegramApi } from "./publish/telegram.js";
+import { runBot } from "./publish/bot.js";
 import { FileDesignAdapter } from "./design/slots.js";
 import { makeRenderer } from "./design/renderer.js";
 import { makeImageHost } from "./design/imagehost.js";
@@ -92,6 +93,37 @@ async function cmdDecide(id: string, action: CallbackAction): Promise<void> {
   console.log(`결정: ${action} → 상태 ${result.status}` + (result.publish ? ` (${result.publish.note ?? result.publish.postId})` : ""));
 }
 
+async function cmdTgMe(): Promise<void> {
+  const api = makeTelegramApi();
+  if (!api) {
+    console.log("❌ TELEGRAM_BOT_TOKEN 미설정 (.env)");
+    return;
+  }
+  const me = await api.getMe();
+  console.log(`✅ 봇 연결됨: @${me.username ?? me.first_name} (id ${me.id})`);
+}
+
+async function cmdTgTest(): Promise<void> {
+  const api = makeTelegramApi();
+  const chatId = process.env.TELEGRAM_CHAT_ID;
+  if (!api || !chatId) {
+    console.log("❌ TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID 둘 다 필요 (.env)");
+    return;
+  }
+  const id = await api.sendMessage(chatId, "🔔 SNS 자동화 봇 연결 테스트 — 이 메시지가 보이면 알림 채널 OK입니다.");
+  console.log(`✅ 테스트 메시지 전송됨 (message_id ${id}). 텔레그램을 확인하세요.`);
+}
+
+async function cmdBot(): Promise<void> {
+  await ensureOut();
+  const api = makeTelegramApi();
+  if (!api) {
+    console.log("❌ TELEGRAM_BOT_TOKEN 미설정 (.env). 봇을 시작할 수 없습니다.");
+    return;
+  }
+  await runBot({ api, store: makeStore(), publisher: makePublisher(), host: makeImageHost((p) => fs.readFile(p)) });
+}
+
 async function cmdServe(port: number): Promise<void> {
   await ensureOut();
   startServer(
@@ -126,6 +158,15 @@ async function main(): Promise<void> {
     case "serve":
       await cmdServe(rest[0] ? Number(rest[0]) : 8080);
       break;
+    case "tg:me":
+      await cmdTgMe();
+      break;
+    case "tg:test":
+      await cmdTgTest();
+      break;
+    case "bot":
+      await cmdBot();
+      break;
     default:
       console.log(`SNS 자동화 에이전트 CLI
 
@@ -134,7 +175,10 @@ async function main(): Promise<void> {
   preview  <start> <date> [--json]        생성·렌더·검수·저장·승인알림(승인 게이트에서 멈춤)
   tick                                    리마인드/만료 스케줄러 1회 실행
   decide   <id> <approve|revise|discard>  승인 결정 처리(승인 시 게시)
-  serve    [port=8080]                    텔레그램 콜백 웹훅 서버
+  tg:me                                   텔레그램 봇 토큰 검증(getMe)
+  tg:test                                 텔레그램 테스트 메시지 전송
+  bot                                     텔레그램 롱폴링 봇(버튼 탭 수신·처리) — 권장
+  serve    [port=8080]                    텔레그램 콜백 웹훅 서버(공개 URL용)
 
 환경변수(없으면 stub로 동작):
   ANTHROPIC_API_KEY / CLAUDE_MODEL                 실제 카피 생성

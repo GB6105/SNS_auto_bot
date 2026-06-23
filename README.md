@@ -17,8 +17,22 @@ node dist/src/cli.js preview  2026-06-01 2026-06-01    # 생성·이미지렌더
 node dist/src/cli.js decide   "2026-06-01:instagram:empathy" approve   # 승인→호스팅→게시
 node dist/src/cli.js decide   "2026-06-01:threads:serious"  discard    # 폐기
 node dist/src/cli.js tick                              # 무응답 리마인드/만료 1회
-node dist/src/cli.js serve    8080                     # 텔레그램 콜백 웹훅 서버
+node dist/src/cli.js tg:me                             # 텔레그램 봇 토큰 검증
+node dist/src/cli.js tg:test                           # 텔레그램 테스트 메시지
+node dist/src/cli.js bot                               # 텔레그램 롱폴링 봇(버튼 탭 수신·처리)
 ```
+
+### 텔레그램 승인 봇 (공개 서버 불필요 — 롱폴링)
+
+```bash
+# .env 에 TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID 설정 후
+node dist/src/cli.js tg:me                             # 토큰 OK 확인
+node dist/src/cli.js bot &                             # 봇 폴링 시작(버튼 탭 대기)
+node dist/src/cli.js preview 2026-06-01 2026-06-01     # 미리보기+버튼을 텔레그램으로 발송
+# 텔레그램에서 [게시]/[수정]/[폐기] 탭 → 봇이 처리하고 메시지를 결과로 수정
+```
+
+`bot`은 본인 PC에서 바로 돌아 공개 URL이 필요 없다. 공개 호스팅이 있으면 `serve`(웹훅)도 가능.
 
 키 없이 실행하면 `StubLLM`(결정적)·`SvgRenderer`·`StubImageHost`·`ConsoleNotifier`·`DryRunPublisher`로
 **캘린더→카피→이미지→검수→저장→승인→(dry-run)게시**까지 전 흐름이 돈다. 상태는 `out/state.json`에 영속.
