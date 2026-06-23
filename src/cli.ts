@@ -5,6 +5,7 @@
 //   node dist/src/cli.js tick                                리마인드/만료 스케줄러 1회
 //   node dist/src/cli.js decide   <id> <approve|revise|discard>   승인 콜백 시뮬/실행
 //   node dist/src/cli.js serve    [port]                    텔레그램 웹훅 서버
+import "./env.js"; // .env 로드 — 다른 import보다 먼저
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { assignTopics, buildCalendar } from "./domain/calendar.js";

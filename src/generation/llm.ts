@@ -19,8 +19,8 @@ export interface LLM {
   complete(req: LLMRequest): Promise<string>;
 }
 
-/** 기본 모델: 비용 민감 운영 권장(Devil#7). env로 override. */
-const DEFAULT_MODEL = process.env.CLAUDE_MODEL ?? "claude-sonnet-4-6";
+/** 기본 모델: 비용 민감 운영 권장(Devil#7). env(CLAUDE_MODEL)로 override. */
+const FALLBACK_MODEL = "claude-sonnet-4-6";
 
 /**
  * 실제 Claude API 클라이언트. ANTHROPIC_API_KEY 있을 때만 사용.
@@ -30,7 +30,7 @@ export class ClaudeClient implements LLM {
   readonly name = "claude";
   constructor(
     private readonly apiKey: string,
-    private readonly model = DEFAULT_MODEL,
+    private readonly model = FALLBACK_MODEL,
     private readonly timeoutMs = 30_000,
     private readonly maxRetries = 2,
   ) {}
@@ -121,5 +121,6 @@ export class StubLLM implements LLM {
 export function makeLLM(): LLM {
   const key = process.env.ANTHROPIC_API_KEY;
   // RALPH-BLOCKER: 실 카피 품질은 ANTHROPIC_API_KEY 필요. 없으면 stub로 동작(개발/테스트 가능).
-  return key ? new ClaudeClient(key) : new StubLLM();
+  if (!key) return new StubLLM();
+  return new ClaudeClient(key, process.env.CLAUDE_MODEL ?? FALLBACK_MODEL);
 }
