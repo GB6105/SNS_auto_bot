@@ -8,6 +8,8 @@ export interface ApprovalPreview {
   copy: GeneratedCopy;
   checklist: ChecklistReport;
   designRef?: string;
+  /** 레코드 id — inline 버튼 callback_data에 인코딩(웹훅이 어떤 항목인지 식별) */
+  id?: string;
 }
 
 export interface NotifyResult {
@@ -49,12 +51,14 @@ export function formatPreview(p: ApprovalPreview): string {
   return lines.join("\n");
 }
 
-/** inline 버튼 정의(텔레그램 callback_data) */
-export const APPROVAL_BUTTONS = [
-  { text: "✅ 게시", callback_data: "approve" },
-  { text: "✏️ 수정", callback_data: "revise" },
-  { text: "🗑 폐기", callback_data: "discard" },
-] as const;
+/** inline 버튼 정의 — callback_data에 `<action>:<id>` 인코딩 */
+export function buildApprovalKeyboard(id: string): Array<{ text: string; callback_data: string }> {
+  return [
+    { text: "✅ 게시", callback_data: `approve:${id}` },
+    { text: "✏️ 수정", callback_data: `revise:${id}` },
+    { text: "🗑 폐기", callback_data: `discard:${id}` },
+  ];
+}
 
 /** 콘솔 stub — 토큰 없을 때 사용(개발/테스트가 외부 설정 없이 동작) */
 export class ConsoleNotifier implements Notifier {
@@ -79,7 +83,7 @@ export class TelegramNotifier implements Notifier {
       body: JSON.stringify({
         chat_id: this.chatId,
         text: formatPreview(preview),
-        reply_markup: { inline_keyboard: [APPROVAL_BUTTONS.map((b) => ({ text: b.text, callback_data: b.callback_data }))] },
+        reply_markup: { inline_keyboard: [buildApprovalKeyboard(preview.id ?? preview.date)] },
       }),
     });
     if (!res.ok) throw new Error(`Telegram ${res.status}: ${await res.text()}`);
