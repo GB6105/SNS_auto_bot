@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { feedbackText, handleUpdate, type BotDeps } from "../src/publish/bot.js";
+import { feedbackText, handleUpdate, parseCommand, type BotDeps } from "../src/publish/bot.js";
+import type { Platform } from "../src/domain/types.js";
 import { TelegramApi, type TelegramUpdate } from "../src/publish/telegram-api.js";
 import { MemoryStore, type ContentRecord } from "../src/store/store.js";
 import { DryRunPublisher } from "../src/publish/publisher.js";
@@ -84,6 +85,52 @@ test("handleUpdate — 잘못된 callback_data는 answer만 하고 null", async 
   assert.equal(result, null);
   assert.ok(calls.some((c) => c.m === "answerCallbackQuery"));
   assert.ok(!calls.some((c) => c.m === "editMessageText"));
+});
+
+test("parseCommand — 슬래시 명령/인자/봇멘션 파싱", () => {
+  assert.deepEqual(parseCommand("/ig"), { cmd: "ig", arg: undefined });
+  assert.deepEqual(parseCommand("/ig 팁"), { cmd: "ig", arg: "팁" });
+  assert.deepEqual(parseCommand("/threads@my_bot 질문"), { cmd: "threads", arg: "질문" });
+  assert.equal(parseCommand("그냥 텍스트"), null);
+});
+
+test("handleUpdate — /ig 명령: generate('instagram') 호출 + 진행 메시지", async () => {
+  const store = new MemoryStore();
+  const { api, calls } = fakeApi();
+  const got: Array<{ platform: Platform; arg?: string }> = [];
+  const d: BotDeps = {
+    ...deps(store, api),
+    generate: async (platform, arg) => {
+      got.push({ platform, arg });
+      return { count: 1 };
+    },
+  };
+  const result = await handleUpdate(
+    { update_id: 20, message: { message_id: 1, chat: { id: 7 }, text: "/ig 팁" } },
+    d,
+  );
+  assert.equal(result, null);
+  assert.deepEqual(got, [{ platform: "instagram", arg: "팁" }]);
+  assert.ok(calls.some((c) => c.m === "sendMessage"), "진행 중 메시지 전송");
+});
+
+test("handleUpdate — /threads 명령: generate('threads') 호출", async () => {
+  const store = new MemoryStore();
+  const { api } = fakeApi();
+  const got: Array<{ platform: Platform; arg?: string }> = [];
+  const d: BotDeps = { ...deps(store, api), generate: async (platform, arg) => { got.push({ platform, arg }); return { count: 1 }; } };
+  await handleUpdate({ update_id: 21, message: { message_id: 1, chat: { id: 7 }, text: "/threads" } }, d);
+  assert.deepEqual(got, [{ platform: "threads", arg: undefined }]);
+});
+
+test("handleUpdate — /help: generate 호출 없이 안내만", async () => {
+  const store = new MemoryStore();
+  const { api, calls } = fakeApi();
+  let gen = 0;
+  const d: BotDeps = { ...deps(store, api), generate: async () => { gen++; return { count: 1 }; } };
+  await handleUpdate({ update_id: 22, message: { message_id: 1, chat: { id: 7 }, text: "/help" } }, d);
+  assert.equal(gen, 0, "도움말은 생성 안 함");
+  assert.ok(calls.some((c) => c.m === "sendMessage"));
 });
 
 test("handleUpdate — approve(dry-run) 스레드: 승인됨 상태", async () => {

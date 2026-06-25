@@ -73,8 +73,13 @@ export class TelegramApi {
     return this.call("editMessageText", { chat_id: chatId, message_id: messageId, text, reply_markup: { inline_keyboard: [] } });
   }
 
-  /** 롱폴링으로 업데이트 수신. offset 이후, timeout초 동안 대기. */
+  /** 슬래시 명령 메뉴 등록(텔레그램 입력창의 / 버튼에 노출). */
+  setMyCommands(commands: Array<{ command: string; description: string }>): Promise<unknown> {
+    return this.call("setMyCommands", { commands });
+  }
+
+  /** 롱폴링으로 업데이트 수신. 버튼 탭(callback_query) + 명령(message) 모두 수신. */
   getUpdates(offset: number, timeoutSec = 30): Promise<TelegramUpdate[]> {
-    return this.call<TelegramUpdate[]>("getUpdates", { offset, timeout: timeoutSec, allowed_updates: ["callback_query"] });
+    return this.call<TelegramUpdate[]>("getUpdates", { offset, timeout: timeoutSec, allowed_updates: ["callback_query", "message"] });
   }
 }

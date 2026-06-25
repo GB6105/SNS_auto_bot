@@ -51,6 +51,39 @@ export const IG_WEEKDAY_PILLAR: Record<number, Pillar | "biweekly"> = {
   5: "biweekly", // Friday: before_after ↔ build_in_public 격주
 };
 
+/** 온디맨드 생성용 — 기둥 인자 파싱(영문 키/별칭/한글). 미일치 시 undefined. */
+export function parsePillar(s?: string): Pillar | undefined {
+  if (!s) return undefined;
+  const k = s.trim().toLowerCase();
+  const map: Record<string, Pillar> = {
+    empathy: "empathy", 공감: "empathy", 공감형: "empathy",
+    tip: "tip", 팁: "tip", 실전팁: "tip", 실전팁형: "tip",
+    before_after: "before_after", ba: "before_after", 비포애프터: "before_after", 비포: "before_after",
+    build_in_public: "build_in_public", bip: "build_in_public", build: "build_in_public", 빌드: "build_in_public", 빌드인퍼블릭: "build_in_public",
+  };
+  return map[k];
+}
+
+/** 온디맨드 생성용 — 톤 인자 파싱(영문 키/별칭/한글). 미일치 시 undefined. */
+export function parseTone(s?: string): import("./types.js").ThreadTone | undefined {
+  if (!s) return undefined;
+  const k = s.trim().toLowerCase();
+  const map: Record<string, import("./types.js").ThreadTone> = {
+    serious: "serious", 진지: "serious", 진지한글: "serious",
+    casual_promo: "casual_promo", casual: "casual_promo", promo: "casual_promo", 일상: "casual_promo", 홍보: "casual_promo", 일상홍보: "casual_promo",
+    question: "question", q: "question", 질문: "question", 질문형: "question",
+    empathy_short: "empathy_short", short: "empathy_short", 공감: "empathy_short", 짧은공감: "empathy_short",
+  };
+  return map[k];
+}
+
+/** 온디맨드 IG 생성용 — 기둥 주제를 날짜로 결정적 선택(매번 같은 날 같은 주제). */
+export function pickTopic(pillar: Pillar, dateIso: string): string {
+  const pool = TOPIC_POOL[pillar];
+  const day = Number(dateIso.slice(8, 10)) || 1;
+  return pool[(day - 1) % pool.length];
+}
+
 /** 스레드 cadence: 요일 → 톤 (월·목 진지 / 화·금 일상홍보 / 수 질문 / 토·일 공감) */
 export const THREAD_WEEKDAY_TONE: Record<number, import("./types.js").ThreadTone> = {
   0: "empathy_short", // Sun

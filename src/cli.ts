@@ -18,7 +18,9 @@ import { makeRenderer } from "./design/renderer.js";
 import { makeImageHost } from "./design/imagehost.js";
 import { makePublisher } from "./publish/publisher.js";
 import { JsonFileStore } from "./store/store.js";
-import { prepareForDate } from "./pipeline/orchestrator.js";
+import { prepareForDate, prepareAdhoc } from "./pipeline/orchestrator.js";
+import { parsePillar, parseTone } from "./domain/pillars.js";
+import type { Platform } from "./domain/types.js";
 import { tickPending } from "./publish/scheduler.js";
 import { handleCallback, type CallbackAction } from "./publish/webhook.js";
 import { startServer } from "./server.js";
@@ -121,7 +123,23 @@ async function cmdBot(): Promise<void> {
     console.log("❌ TELEGRAM_BOT_TOKEN 미설정 (.env). 봇을 시작할 수 없습니다.");
     return;
   }
-  await runBot({ api, store: makeStore(), publisher: makePublisher(), host: makeImageHost((p) => fs.readFile(p)) });
+  const store = makeStore();
+  // 온디맨드 생성용 deps — /ig·/threads 명령에서 사용(생성·렌더·미리보기 발송까지)
+  const genDeps = {
+    llm: makeLLM(),
+    notifier: makeNotifier(),
+    design: new FileDesignAdapter(async (p, d) => fs.writeFile(p, d, "utf8"), OUT),
+    renderer: makeRenderer(async (p, d) => fs.writeFile(p, d, "utf8"), async (p, d) => fs.writeFile(p, d), OUT),
+    store,
+  };
+  const generate = async (platform: Platform, arg?: string): Promise<{ count: number }> => {
+    const date = todayIsoFallback();
+    const opts =
+      platform === "instagram" ? { date, pillar: parsePillar(arg) } : { date, tone: parseTone(arg) };
+    const p = await prepareAdhoc(platform, opts, genDeps);
+    return { count: p ? 1 : 0 };
+  };
+  await runBot({ api, store, publisher: makePublisher(), host: makeImageHost((p) => fs.readFile(p)), generate });
 }
 
 async function cmdServe(port: number): Promise<void> {

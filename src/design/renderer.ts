@@ -59,7 +59,7 @@ export class PuppeteerRenderer implements ImageRenderer {
       const cards = toRenderCards(copy.cards);
       const out: RenderedImage[] = [];
       for (const c of cards) {
-        await page.setContent(cardHtml(c), { waitUntil: "networkidle0" });
+        await page.setContent(cardHtml(c), { waitUntil: "domcontentloaded" });
         const buf: Uint8Array = await page.screenshot({ type: "png" });
         const path = `${this.outDir}/card-${meta.date}-${c.cardIndex}.png`;
         await this.writeFileBytes(path, buf);

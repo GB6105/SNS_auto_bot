@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "description": "ADHD 플래너 SNS 브랜딩 자동화 에이전트 — 반자동(승인제) 콘텐츠 파이프라인",
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
@@ -14,7 +16,10 @@
     "start": "node dist/src/cli.js"
   },
   "devDependencies": {
-    "typescript": "^5.5.0",
-    "@types/node": "^20.14.0"
+    "@types/node": "^20.14.0",
+    "typescript": "^5.5.0"
+  },
+  "dependencies": {
+    "puppeteer": "^25.2.1"
   }
 }
