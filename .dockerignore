@@ -1,0 +1,12 @@
+node_modules
+dist
+out
+.git
+.env
+.env.*
+!.env.example
+*.pen
+.scaffold
+docs
+npm-debug.log
+.DS_Store

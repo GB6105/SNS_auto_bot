@@ -1,0 +1,22 @@
+# Fly.io 앱 설정 — SNS 자동화 텔레그램 봇(롱폴링).
+# app 이름은 전역 유일해야 함 — 이미 쓰는 이름이면 바꾸세요.
+app = "sns-auto-bot"
+primary_region = "nrt"  # 도쿄(한국에서 지연 최소)
+
+[build]
+
+# 롱폴링 봇 프로세스 — 인바운드 HTTP 서비스 없음(포트 노출 불필요)
+[processes]
+  app = "node dist/src/cli.js bot"
+
+# 상태(state.json)·렌더 PNG 영속화 — 재시작에도 승인 상태 유지
+[mounts]
+  source = "snsdata"
+  destination = "/app/out"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "1gb"   # puppeteer(Chromium) 렌더에 512MB는 빠듯 → 1GB
+
+# 인바운드 HTTP 서비스가 없으므로 머신은 자동 종료되지 않고 계속 떠 있음.
+# 크래시 시 Fly 기본 정책으로 자동 재시작.
