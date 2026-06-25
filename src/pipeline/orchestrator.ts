@@ -79,6 +79,7 @@ export async function prepareForDate(
     const preview: ApprovalPreview = { date: item.date, copy, checklist, id };
     if (designRef !== undefined) preview.designRef = designRef;
     else if (images && images.length > 0) preview.designRef = images.map((i) => i.path).join(", ");
+    if (images && images.length > 0) preview.images = images.map((i) => ({ path: i.path, mime: i.mime }));
     await deps.notifier.notify(preview);
 
     // 영속화

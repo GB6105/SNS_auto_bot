@@ -1,4 +1,6 @@
 // US-9: 텔레그램 승인 봇 어댑터(Notifier). 외부 토큰 필요 → stub 우선.
+import { readFile } from "node:fs/promises";
+import { basename } from "node:path";
 import type { GeneratedCopy } from "../domain/types.js";
 import { PILLAR_LABEL, THREAD_TONE_LABEL } from "../domain/types.js";
 import type { ChecklistReport } from "../guardrail/checklist.js";
@@ -9,6 +11,8 @@ export interface ApprovalPreview {
   copy: GeneratedCopy;
   checklist: ChecklistReport;
   designRef?: string;
+  /** 렌더된 카드 이미지 — 텔레그램 앨범 첨부용(PNG/JPEG만 인라인 렌더, SVG는 자동 제외) */
+  images?: Array<{ path: string; mime: string }>;
   /** 레코드 id — inline 버튼 callback_data에 인코딩(웹훅이 어떤 항목인지 식별) */
   id?: string;
 }
@@ -25,16 +29,28 @@ export interface Notifier {
   notify(preview: ApprovalPreview): Promise<NotifyResult>;
 }
 
-/** 미리보기 → 사람이 5초에 읽는 텍스트 (PRD §UI/UX: ⚠️+라벨, 본문 요약) */
+/** 미리보기 → 게시될 콘텐츠 전문을 텔레그램에서 그대로 읽도록 (PRD §UI/UX: ⚠️+라벨) */
 export function formatPreview(p: ApprovalPreview): string {
   const lines: string[] = [];
   if (p.copy.kind === "ig_card") {
-    lines.push(`📸 인스타 카드뉴스 · ${p.date}`);
-    lines.push(`기둥: ${p.copy.copy.cards.length}장`);
-    lines.push(`헤드라인: ${p.copy.copy.cards[0]}`);
-    lines.push(`캡션 첫 줄: ${p.copy.copy.caption.split("\n")[0]}`);
+    const c = p.copy.copy;
+    lines.push(`📸 인스타 카드뉴스 · ${p.date} · ${c.cards.length}장`);
+    lines.push("");
+    // 카드 슬라이드 전문 — 1번 헤드라인, 마지막 CTA, 가운데 본문
+    c.cards.forEach((text, i) => {
+      const tag = i === 0 ? "표지" : i === c.cards.length - 1 ? "CTA" : `${i + 1}컷`;
+      lines.push(`【${tag}】 ${text}`);
+    });
+    lines.push("");
+    lines.push("— 캡션 —");
+    lines.push(c.caption);
+    // 캡션에 해시태그가 이미 없을 때만 별도 줄로 덧붙임(중복 방지)
+    const tags = c.hashtags.map((h) => (h.startsWith("#") ? h : `#${h}`));
+    if (tags.length && !tags.some((t) => c.caption.includes(t))) lines.push(tags.join(" "));
+    if (c.disclaimer) lines.push(`\n${c.disclaimer}`);
   } else {
     lines.push(`🧵 스레드 · ${p.date} · ${THREAD_TONE_LABEL[p.copy.copy.tone]}`);
+    lines.push("");
     lines.push(p.copy.copy.text);
   }
 
@@ -81,6 +97,19 @@ export class TelegramNotifier implements Notifier {
   }
 
   async notify(preview: ApprovalPreview): Promise<NotifyResult> {
+    // 1) 렌더된 카드 이미지(PNG/JPEG)가 있으면 앨범으로 먼저 — 텔레그램은 SVG 인라인 불가라 제외
+    const renderable = (preview.images ?? []).filter((i) => i.mime === "image/png" || i.mime === "image/jpeg");
+    if (renderable.length > 0) {
+      try {
+        const photos = await Promise.all(
+          renderable.slice(0, 10).map(async (i) => ({ bytes: await readFile(i.path), filename: basename(i.path), mime: i.mime })),
+        );
+        await this.api.sendMediaGroup(this.chatId, photos);
+      } catch {
+        /* 이미지 전송 실패는 무시 — 텍스트 미리보기는 계속 보낸다 */
+      }
+    }
+    // 2) 전문 텍스트 + 승인 버튼
     const messageId = await this.api.sendMessage(
       this.chatId,
       formatPreview(preview),

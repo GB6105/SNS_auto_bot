@@ -29,6 +29,14 @@ export class TelegramApi {
     return data.result as T;
   }
 
+  /** multipart/form-data 호출(파일 업로드용). content-type은 fetch가 boundary와 함께 설정. */
+  private async callForm<T = any>(method: string, form: FormData): Promise<T> {
+    const res = await this.fetchFn(`https://api.telegram.org/bot${this.token}/${method}`, { method: "POST", body: form });
+    const data = (await res.json()) as { ok: boolean; result?: T; description?: string };
+    if (!res.ok || !data.ok) throw new Error(`Telegram ${method} 실패: ${data.description ?? res.status}`);
+    return data.result as T;
+  }
+
   /** 토큰 검증 + 봇 정보 */
   getMe(): Promise<{ id: number; username?: string; first_name?: string }> {
     return this.call("getMe");
@@ -40,6 +48,19 @@ export class TelegramApi {
     if (buttons) body.reply_markup = { inline_keyboard: [buttons] };
     const r = await this.call<{ message_id: number }>("sendMessage", body);
     return r.message_id;
+  }
+
+  /** 여러 이미지를 한 앨범으로 전송(캐러셀 미리보기). 텔레그램은 PNG/JPEG만 인라인 렌더. */
+  async sendMediaGroup(chatId: string | number, photos: Array<{ bytes: Uint8Array; filename: string; mime: string }>): Promise<void> {
+    const form = new FormData();
+    form.append("chat_id", String(chatId));
+    const media = photos.map((_p, i) => ({ type: "photo", media: `attach://f${i}` }));
+    form.append("media", JSON.stringify(media));
+    photos.forEach((p, i) => {
+      const blob = new Blob([p.bytes as unknown as BlobPart], { type: p.mime });
+      form.append(`f${i}`, blob, p.filename);
+    });
+    await this.callForm("sendMediaGroup", form);
   }
 
   /** 콜백 응답(버튼 로딩 스피너 종료) */
