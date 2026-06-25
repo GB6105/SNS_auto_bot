@@ -1,7 +1,9 @@
 // 텔레그램 롱폴링 봇: 버튼 탭 수신 → 승인 처리 + 슬래시 명령(/ig·/threads)으로 온디맨드 생성.
+import { basename } from "node:path";
 import type { Store } from "../store/store.js";
 import type { ImageHost } from "../design/imagehost.js";
 import type { Platform } from "../domain/types.js";
+import { zipStore } from "../util/zip.js";
 import type { Publisher } from "./publisher.js";
 import { handleCallback, type CallbackResult } from "./webhook.js";
 import { TelegramApi, type TelegramUpdate } from "./telegram-api.js";
@@ -13,6 +15,8 @@ export interface BotDeps {
   host: ImageHost;
   /** 온디맨드 생성 — /ig·/threads 명령에서 호출. 생성·렌더·미리보기 발송까지 내부 수행. */
   generate?: (platform: Platform, arg?: string) => Promise<{ count: number }>;
+  /** 로컬 이미지 파일 읽기 — 💾 저장(zip 묶음) 버튼에서 사용. */
+  readFile?: (path: string) => Promise<Uint8Array>;
   log?: (m: string) => void;
 }
 
@@ -80,6 +84,14 @@ export async function handleUpdate(update: TelegramUpdate, deps: BotDeps): Promi
   }
   const cq = update.callback_query;
   if (!cq) return null;
+
+  // 💾 저장 — 상태 변경 없이 카드 이미지를 zip 문서로 전송
+  if (cq.data?.startsWith("save:") && cq.message) {
+    await deps.api.answerCallbackQuery(cq.id, "이미지 묶는 중…");
+    await handleSave(cq.data.slice("save:".length), cq.message.chat.id, deps);
+    return null;
+  }
+
   const parsed = parseData(cq.data);
   if (!parsed) {
     await deps.api.answerCallbackQuery(cq.id, "알 수 없는 동작이에요");
@@ -100,6 +112,29 @@ export async function handleUpdate(update: TelegramUpdate, deps: BotDeps): Promi
   if (cq.message) await deps.api.editMessageText(cq.message.chat.id, cq.message.message_id, fb);
   deps.log?.(`[bot] ${parsed.action} ${parsed.id} → ${result.status}`);
   return result;
+}
+
+/** 💾 저장 — 레코드의 카드 PNG/JPEG를 zip 한 파일로 묶어 문서로 전송. 상태 불변. */
+async function handleSave(id: string, chatId: number, deps: BotDeps): Promise<void> {
+  const rec = await deps.store.get(id);
+  const imgs = (rec?.images ?? []).filter((i) => i.mime === "image/png" || i.mime === "image/jpeg");
+  if (!rec || imgs.length === 0) {
+    await deps.api.sendMessage(chatId, "저장할 이미지가 없어요. (스레드이거나 PNG 미렌더 — IMAGE_RENDERER=puppeteer 필요)");
+    return;
+  }
+  if (!deps.readFile) {
+    await deps.api.sendMessage(chatId, "파일 읽기 기능이 비활성화돼 있어요(서버 설정 필요).");
+    return;
+  }
+  try {
+    const files = await Promise.all(imgs.map(async (i) => ({ name: basename(i.path), data: await deps.readFile!(i.path) })));
+    const zip = zipStore(files);
+    await deps.api.sendDocument(chatId, { bytes: zip, filename: `cards-${rec.date}.zip`, mime: "application/zip" }, `💾 카드 ${files.length}장 — ${rec.date}`);
+    deps.log?.(`[bot] save ${id} → ${files.length}장 zip`);
+  } catch (err) {
+    await deps.api.sendMessage(chatId, `❌ 저장 실패: ${String(err)}`);
+    deps.log?.(`[bot] save 오류 ${id}: ${String(err)}`);
+  }
 }
 
 /** 슬래시 명령 → 온디맨드 생성/도움말. 미리보기 발송은 deps.generate 내부에서 수행. */

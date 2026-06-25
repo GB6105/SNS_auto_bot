@@ -87,6 +87,47 @@ test("handleUpdate — 잘못된 callback_data는 answer만 하고 null", async 
   assert.ok(!calls.some((c) => c.m === "editMessageText"));
 });
 
+test("handleUpdate — 💾 저장(save:): zip 문서 전송, 상태 불변", async () => {
+  const store = new MemoryStore();
+  const rec: ContentRecord = {
+    id: "c1",
+    date: "2026-06-29",
+    platform: "instagram",
+    pillar: "empathy",
+    copy: { kind: "ig_card", copy: { cards: ["h", "m", "c"], caption: "cap", hashtags: ["#a"] } },
+    checklist: okChecklist,
+    status: "awaiting_approval",
+    awaitingSinceMs: 0,
+    images: [
+      { path: "/out/card-0.png", mime: "image/png", width: 1080, height: 1080, cardIndex: 0 },
+      { path: "/out/card-1.png", mime: "image/png", width: 1080, height: 1080, cardIndex: 1 },
+    ],
+  };
+  await store.upsert(rec);
+  const { api, calls } = fakeApi();
+  const d: BotDeps = { ...deps(store, api), readFile: async () => new Uint8Array([1, 2, 3]) };
+  const result = await handleUpdate(
+    { update_id: 30, callback_query: { id: "cq", data: "save:c1", message: { message_id: 1, chat: { id: 7 } } } },
+    d,
+  );
+  assert.equal(result, null);
+  assert.ok(calls.some((c) => c.m === "sendDocument"), "zip 문서 전송");
+  assert.equal((await store.get("c1"))!.status, "awaiting_approval", "상태 불변");
+});
+
+test("handleUpdate — 💾 저장: 이미지 없으면 안내만(문서 없음)", async () => {
+  const store = new MemoryStore();
+  await store.upsert(threadRecord("t-noimg"));
+  const { api, calls } = fakeApi();
+  const d: BotDeps = { ...deps(store, api), readFile: async () => new Uint8Array([1]) };
+  await handleUpdate(
+    { update_id: 31, callback_query: { id: "cq", data: "save:t-noimg", message: { message_id: 1, chat: { id: 7 } } } },
+    d,
+  );
+  assert.ok(!calls.some((c) => c.m === "sendDocument"), "문서 전송 없음");
+  assert.ok(calls.some((c) => c.m === "sendMessage"), "안내 메시지");
+});
+
 test("parseCommand — 슬래시 명령/인자/봇멘션 파싱", () => {
   assert.deepEqual(parseCommand("/ig"), { cmd: "ig", arg: undefined });
   assert.deepEqual(parseCommand("/ig 팁"), { cmd: "ig", arg: "팁" });

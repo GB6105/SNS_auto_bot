@@ -139,7 +139,7 @@ async function cmdBot(): Promise<void> {
     const p = await prepareAdhoc(platform, opts, genDeps);
     return { count: p ? 1 : 0 };
   };
-  await runBot({ api, store, publisher: makePublisher(), host: makeImageHost((p) => fs.readFile(p)), generate });
+  await runBot({ api, store, publisher: makePublisher(), host: makeImageHost((p) => fs.readFile(p)), generate, readFile: (p) => fs.readFile(p) });
 }
 
 async function cmdServe(port: number): Promise<void> {

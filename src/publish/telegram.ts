@@ -68,13 +68,15 @@ export function formatPreview(p: ApprovalPreview): string {
   return lines.join("\n");
 }
 
-/** inline 버튼 정의 — callback_data에 `<action>:<id>` 인코딩 */
-export function buildApprovalKeyboard(id: string): Array<{ text: string; callback_data: string }> {
-  return [
+/** inline 버튼 정의 — callback_data에 `<action>:<id>` 인코딩. 이미지 있으면 💾 저장 추가. */
+export function buildApprovalKeyboard(id: string, withSave = false): Array<{ text: string; callback_data: string }> {
+  const buttons = [
     { text: "✅ 게시", callback_data: `approve:${id}` },
     { text: "✏️ 수정", callback_data: `revise:${id}` },
     { text: "🗑 폐기", callback_data: `discard:${id}` },
   ];
+  if (withSave) buttons.push({ text: "💾 저장", callback_data: `save:${id}` });
+  return buttons;
 }
 
 /** 콘솔 stub — 토큰 없을 때 사용(개발/테스트가 외부 설정 없이 동작) */
@@ -109,11 +111,11 @@ export class TelegramNotifier implements Notifier {
         /* 이미지 전송 실패는 무시 — 텍스트 미리보기는 계속 보낸다 */
       }
     }
-    // 2) 전문 텍스트 + 승인 버튼
+    // 2) 전문 텍스트 + 승인 버튼(이미지 있으면 💾 저장 포함)
     const messageId = await this.api.sendMessage(
       this.chatId,
       formatPreview(preview),
-      buildApprovalKeyboard(preview.id ?? preview.date),
+      buildApprovalKeyboard(preview.id ?? preview.date, renderable.length > 0),
     );
     return { delivered: true, channel: "telegram", messageId: String(messageId) };
   }
