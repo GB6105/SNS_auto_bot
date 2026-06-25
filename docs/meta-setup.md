@@ -26,9 +26,9 @@
 - [ ] **Meta Business Suite(business.facebook.com):** 좌측 **설정 → 비즈니스 자산 → Instagram 계정** 에 인스타가 페이지와 함께 묶여 있는가
 
 ### 안 돼 있으면 연결
-- [ ] 페이스북 페이지가 없으면: facebook.com → 페이지 → **새 페이지 만들기** (이름만 있으면 됨, 1분)
-- [ ] 인스타 앱 → 설정 → **비즈니스 → 페이스북 페이지 연결** → 위 페이지 선택
-- [ ] 연결 후 위 "확인" 다시 체크
+- [x] 페이스북 페이지가 없으면: facebook.com → 페이지 → **새 페이지 만들기** (이름만 있으면 됨, 1분)
+- [x] 인스타 앱 → 설정 → **비즈니스 → 페이스북 페이지 연결** → 위 페이지 선택
+- [x] 연결 후 위 "확인" 다시 체크
 
 > ✅ 체크포인트: **FB 페이지에 IG 비즈 계정이 연결됨** 이 확인되면 STEP 2로.
 
@@ -36,21 +36,21 @@
 
 ## STEP 2. Meta 개발자 앱 생성
 
-- [ ] https://developers.facebook.com 접속 → 우상단 로그인(페북 계정)
-- [ ] 처음이면 **개발자 등록**(전화/이메일 인증, 무료)
-- [ ] 상단 **My Apps → Create App**
-- [ ] Use case(용도) 선택: **"Other" → 앱 유형 "Business"** (또는 바로 Business 유형)
-- [ ] 앱 이름 입력(예: `sns-auto-adhd`) → 생성
-- [ ] 생성되면 좌측 **App settings → Basic** 에서 **App ID / App Secret** 확인 (메모; Secret은 비공개)
+- [x] https://developers.facebook.com 접속 → 우상단 로그인(페북 계정)
+- [x 처음이면 **개발자 등록**(전화/이메일 인증, 무료)
+- [x] 상단 **My Apps → Create App**
+- [x] Use case(용도) 선택: **"Other" → 앱 유형 "Business"** (또는 바로 Business 유형)
+- [x] 앱 이름 입력(예: `sns-auto-adhd`) → 생성
+- [x] 생성되면 좌측 **App settings → Basic** 에서 **App ID / App Secret** 확인 (메모; Secret은 비공개)
 
 ---
 
 ## STEP 3. 본인 계정을 앱에 역할로 추가 (앱 심사 우회의 핵심)
 
-- [ ] 앱 대시보드 → **App roles → Roles** (또는 Roles → Roles)
-- [ ] 본인 페이스북 계정이 **Administrator**로 있는지 확인(보통 생성자 자동)
-- [ ] (테스터가 필요하면) **Add People → Tester** 로 본인 추가 → 본인 계정에서 초대 수락
-- [ ] 앱 상태는 **개발(Development) 모드**로 둔다(상단 토글). 본인 계정 게시는 이 모드로 충분
+- [x] 앱 대시보드 → **App roles → Roles** (또는 Roles → Roles)
+- [x] 본인 페이스북 계정이 **Administrator**로 있는지 확인(보통 생성자 자동)
+- [x] (테스터가 필요하면) **Add People → Tester** 로 본인 추가 → 본인 계정에서 초대 수락
+- [x] 앱 상태는 **개발(Development) 모드**로 둔다(상단 토글). 본인 계정 게시는 이 모드로 충분
 
 > 이 역할 부여 덕에 `instagram_content_publish` 같은 권한을 **공개 앱 심사 없이** 본인 계정에 쓸 수 있다.
 

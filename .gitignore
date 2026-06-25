@@ -3,3 +3,6 @@ dist/
 out/
 .DS_Store
 .env
+
+# pencil.dev 임시 디자인 파일
+untitled.pen
