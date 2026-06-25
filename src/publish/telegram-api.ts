@@ -63,15 +63,6 @@ export class TelegramApi {
     await this.callForm("sendMediaGroup", form);
   }
 
-  /** 파일 1개를 문서로 전송(예: 카드 묶음 zip). 다운로드 가능한 첨부. */
-  async sendDocument(chatId: string | number, doc: { bytes: Uint8Array; filename: string; mime: string }, caption?: string): Promise<void> {
-    const form = new FormData();
-    form.append("chat_id", String(chatId));
-    if (caption) form.append("caption", caption);
-    form.append("document", new Blob([doc.bytes as unknown as BlobPart], { type: doc.mime }), doc.filename);
-    await this.callForm("sendDocument", form);
-  }
-
   /** 콜백 응답(버튼 로딩 스피너 종료) */
   answerCallbackQuery(callbackQueryId: string, text?: string): Promise<unknown> {
     return this.call("answerCallbackQuery", { callback_query_id: callbackQueryId, text });

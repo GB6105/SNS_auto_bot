@@ -3,7 +3,6 @@ import { basename } from "node:path";
 import type { Store } from "../store/store.js";
 import type { ImageHost } from "../design/imagehost.js";
 import type { Platform } from "../domain/types.js";
-import { zipStore } from "../util/zip.js";
 import type { Publisher } from "./publisher.js";
 import { handleCallback, type CallbackResult } from "./webhook.js";
 import { TelegramApi, type TelegramUpdate } from "./telegram-api.js";
@@ -15,7 +14,7 @@ export interface BotDeps {
   host: ImageHost;
   /** 온디맨드 생성 — /ig·/threads 명령에서 호출. 생성·렌더·미리보기 발송까지 내부 수행. */
   generate?: (platform: Platform, arg?: string) => Promise<{ count: number }>;
-  /** 로컬 이미지 파일 읽기 — 💾 저장(zip 묶음) 버튼에서 사용. */
+  /** 로컬 이미지 파일 읽기 — 💾 저장(사진첩용 앨범 재전송) 버튼에서 사용. */
   readFile?: (path: string) => Promise<Uint8Array>;
   log?: (m: string) => void;
 }
@@ -114,7 +113,10 @@ export async function handleUpdate(update: TelegramUpdate, deps: BotDeps): Promi
   return result;
 }
 
-/** 💾 저장 — 레코드의 카드 PNG/JPEG를 zip 한 파일로 묶어 문서로 전송. 상태 불변. */
+/**
+ * 💾 저장 — 카드 PNG/JPEG를 깨끗한 사진 앨범으로 재전송(상태 불변).
+ * 텔레그램 앨범을 길게 눌러 "갤러리에 저장"하면 전부 사진첩에 들어간다(봇은 직접 저장 불가).
+ */
 async function handleSave(id: string, chatId: number, deps: BotDeps): Promise<void> {
   const rec = await deps.store.get(id);
   const imgs = (rec?.images ?? []).filter((i) => i.mime === "image/png" || i.mime === "image/jpeg");
@@ -127,10 +129,12 @@ async function handleSave(id: string, chatId: number, deps: BotDeps): Promise<vo
     return;
   }
   try {
-    const files = await Promise.all(imgs.map(async (i) => ({ name: basename(i.path), data: await deps.readFile!(i.path) })));
-    const zip = zipStore(files);
-    await deps.api.sendDocument(chatId, { bytes: zip, filename: `cards-${rec.date}.zip`, mime: "application/zip" }, `💾 카드 ${files.length}장 — ${rec.date}`);
-    deps.log?.(`[bot] save ${id} → ${files.length}장 zip`);
+    const photos = await Promise.all(
+      imgs.slice(0, 10).map(async (i) => ({ bytes: await deps.readFile!(i.path), filename: basename(i.path), mime: i.mime })),
+    );
+    await deps.api.sendMediaGroup(chatId, photos);
+    await deps.api.sendMessage(chatId, `⬆️ 위 ${photos.length}장을 길게 눌러 '갤러리에 저장'을 누르면 사진첩에 한 번에 저장돼요.`);
+    deps.log?.(`[bot] save ${id} → ${photos.length}장 앨범 재전송`);
   } catch (err) {
     await deps.api.sendMessage(chatId, `❌ 저장 실패: ${String(err)}`);
     deps.log?.(`[bot] save 오류 ${id}: ${String(err)}`);

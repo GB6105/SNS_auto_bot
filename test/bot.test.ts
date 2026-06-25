@@ -87,7 +87,7 @@ test("handleUpdate — 잘못된 callback_data는 answer만 하고 null", async 
   assert.ok(!calls.some((c) => c.m === "editMessageText"));
 });
 
-test("handleUpdate — 💾 저장(save:): zip 문서 전송, 상태 불변", async () => {
+test("handleUpdate — 💾 저장(save:): 사진 앨범 재전송, 상태 불변", async () => {
   const store = new MemoryStore();
   const rec: ContentRecord = {
     id: "c1",
@@ -111,11 +111,11 @@ test("handleUpdate — 💾 저장(save:): zip 문서 전송, 상태 불변", as
     d,
   );
   assert.equal(result, null);
-  assert.ok(calls.some((c) => c.m === "sendDocument"), "zip 문서 전송");
+  assert.ok(calls.some((c) => c.m === "sendMediaGroup"), "사진 앨범 전송");
   assert.equal((await store.get("c1"))!.status, "awaiting_approval", "상태 불변");
 });
 
-test("handleUpdate — 💾 저장: 이미지 없으면 안내만(문서 없음)", async () => {
+test("handleUpdate — 💾 저장: 이미지 없으면 안내만(앨범 없음)", async () => {
   const store = new MemoryStore();
   await store.upsert(threadRecord("t-noimg"));
   const { api, calls } = fakeApi();
@@ -124,7 +124,7 @@ test("handleUpdate — 💾 저장: 이미지 없으면 안내만(문서 없음)
     { update_id: 31, callback_query: { id: "cq", data: "save:t-noimg", message: { message_id: 1, chat: { id: 7 } } } },
     d,
   );
-  assert.ok(!calls.some((c) => c.m === "sendDocument"), "문서 전송 없음");
+  assert.ok(!calls.some((c) => c.m === "sendMediaGroup"), "앨범 전송 없음");
   assert.ok(calls.some((c) => c.m === "sendMessage"), "안내 메시지");
 });
 
